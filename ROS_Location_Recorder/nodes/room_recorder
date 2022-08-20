@@ -1,0 +1,101 @@
+#! /usr/bin/env python
+
+from location_recorder.srv import RoomPose
+from location_recorder.srv import RoomPoseResponse
+
+from geometry_msgs.msg import PoseWithCovarianceStamped
+
+import rospy
+import sys
+import yaml
+import os
+
+
+global location
+
+
+def callback(req):
+    global location
+    location = str(req.room_label)
+
+
+    msg = rospy.wait_for_message("/amcl_pose",PoseWithCovarianceStamped)
+
+
+    base_path = os.path.dirname(__file__)
+
+    file_path = os.path.abspath(os.path.join(base_path, "..", "./records/", "location_recorder.yaml"))
+
+    if not os.path.exists(file_path):
+
+        robot_location = dict()
+
+    else:
+
+        with open(file_path) as f:
+
+            robot_location = yaml.safe_load(f)
+
+    robot_position_x = msg.pose.pose.position.x
+
+    robot_position_y = msg.pose.pose.position.y
+
+    robot_position_z = msg.pose.pose.position.z
+
+    robot_orientation_x = msg.pose.pose.orientation.x
+
+    robot_orientation_y = msg.pose.pose.orientation.y
+
+    robot_orientation_z = msg.pose.pose.orientation.z
+
+    robot_orientation_w = msg.pose.pose.orientation.w
+
+    robot_location[location] = {
+
+        "orientation": {
+
+            "x": robot_orientation_x,
+
+            "y": robot_orientation_y,
+
+            "z": robot_orientation_z,
+
+            "w": robot_orientation_w
+
+        },
+
+        "position": {
+
+            "x": robot_position_x,
+
+            "y": robot_position_y,
+
+            "z": robot_position_z
+
+        }
+
+    }
+
+    with open(file_path, 'w') as f:
+        yaml.dump(robot_location, f, default_flow_style=False)
+
+    return RoomPoseResponse("Entry saved in file")  # send the response to the client
+
+
+def room_service_server():
+    rospy.init_node("room_service_server")
+    # Create the server that listens to the request
+    rospy.Service("room_service", RoomPose, callback)
+    rospy.loginfo("I am waiting for requests...")
+
+    rospy.spin()
+
+
+
+
+if __name__ == "__main__":
+    room_service_server()
+
+
+
+
